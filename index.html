@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Змейка</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" href="ChatGPT Image 9 апр. 2025 г., 12_22_29 (1).png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      background-color: #000 ;
+      color: white;
+    }
+    canvas {
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+    .btn {
+      @apply bg-gray-800 text-white text-sm px-4 py-2 rounded-xl shadow transition-transform duration-200 hover:scale-105 active:scale-95;
+    }
+    #deathEffect {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: rgba(255, 0, 0, 0.3);
+      border-radius: 0.5rem;
+      animation: explode 0.3s ease-out;
+      pointer-events: none;
+    }
+    @keyframes explode {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(2); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes snakeMove {
+      from { transform: scale(0.8); }
+      to { transform: scale(1); }
+    }
+    .snake-part {
+      animation: snakeMove 0.2s ease-in-out;
+    }
+    @keyframes explode {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(2); }
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .track-info {
+  text-align: center;
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: white;
+}
+
+.music-visualizer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+  height: 30px;
+  margin-bottom: 10px;
+}
+
+.music-visualizer .bar {
+  width: 4px;
+  height: 100%;
+  background: lime;
+  animation: bounce 1s infinite ease-in-out;
+}
+
+.music-visualizer .bar:nth-child(1) { animation-delay: 0s; }
+.music-visualizer .bar:nth-child(2) { animation-delay: 0.1s; }
+.music-visualizer .bar:nth-child(3) { animation-delay: 0.2s; }
+.music-visualizer .bar:nth-child(4) { animation-delay: 0.3s; }
+.music-visualizer .bar:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 100% { height: 20%; }
+  50% { height: 100%; }
+}
+
+  </style>
+</head>
+<body class="bg-black text-white flex flex-col items-center justify-center min-h-screen transition-colors duration-500 relative px-2 py-4 overflow-hidden" id="body">
+  <audio id="eatSound" src="eat.mp3" preload="auto"></audio>
+  <audio id="deathSound" src="death.mp3" preload="auto"></audio>
+  <audio id="chargingSound" src="charging.mp3" preload="auto"></audio>
+  <audio id="unplugSound" src="unplug.mp3" preload="auto"></audio>
+  <audio id="overheatSound" src="overheat.mp3" preload="auto"></audio>
+
+  <div class="text-center mb-2 fade-in">
+    <h1 class="text-xl font-bold">Змейка</h1>
+    <div id="score" class="text-sm">Очки: 0 | Рекорд: 0</div>
+    <div id="time" class="text-xs mt-1"></div>
+    <div id="weather" class="text-xs mt-1 text-gray-300"></div>
+    <div id="battery" class="text-xs mt-1 text-gray-300"></div>
+    <div id="heat" class="text-xs mt-1 text-red-400"></div>
+  </div>
+
+  <div class="relative" id="gameArea">
+    <canvas id="gameCanvas" width="300" height="300" class="bg-neutral-800 rounded-lg shadow-lg fade-in"></canvas>
+    <div id="deathEffect" class="hidden"></div>
+  </div>
+
+  <div class="flex flex-col items-center mt-4 gap-2 fade-in">
+    <button onclick="startGame()" class="btn w-36">Старт</button>
+    <button onclick="pauseGame()" class="btn w-36">Пауза</button>
+    <button onclick="resetGame()" class="btn w-36">Заново</button>
+    <button onclick="randomTheme()" class="btn w-36">🎨 Тема</button>
+    <button onclick="toggleFullscreen()" class="btn w-36">🖥️ На весь экран</button>
+  </div>
+  <div class="music-player">
+    <div class="track-info">
+      🎵 Сейчас играет: <span id="track-name">-</span>
+    </div>
+  
+    <div class="music-visualizer">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </div>
+  
+    <div class="music-controls">
+      <button onclick="prevTrack()" class="music-btn">⏮️</button>
+      <button onclick="playCurrentTrack()" class="music-btn">▶️</button>
+      <button onclick="pauseCurrentTrack()" class="music-btn">⏸️</button>
+      <button onclick="nextTrack()" class="music-btn">⏭️</button>
+    </div>
+  </div>
+  
+
+  <div class="mt-6 flex flex-col items-center gap-2 fade-in">
+    <div class="flex gap-3">
+      <button class="btn text-xl px-6 py-4" onclick="setDirection('up')">⬆️</button>
+    </div>
+    <div class="flex gap-3">
+      <button class="btn text-xl px-6 py-4" onclick="setDirection('left')">⬅️</button>
+      <button class="btn text-xl px-6 py-4" onclick="setDirection('down')">⬇️</button>
+      <button class="btn text-xl px-6 py-4" onclick="setDirection('right')">➡️</button>
+    </div>
+
+  <audio id="ambientAudio" loop>
+    <source src="breath-of-life_10-minutes-320859.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="lofiAudio" loop>
+    <source src="lofi-2-312707.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="ambientAudio" loop>
+    <source src="SENTA MARIA VAI X BEAT ABSURDO (Ultra Slowed).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="lofiAudio" loop>
+    <source src="MONTAGEM MARE GRANA (Ultra Slowed).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="retroAudio" loop>
+    <source src="AUREA COSMICA JAPANESE VERSION - (Slowed & Reverb) - (Tiktok Version).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="KRUSHKRUSH! (Super Slowed).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="MTG ENSURDECÊNCIA ESTELAR 1.0 SLOWED  REVERB - FR3ST & MC GW (VYRUS RECORDS).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="REAL MOONSHINE FUNK - DJ ROBE ( Ultra Slowed  Reverb ).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="MONTAGEM FIM ESTRELAR - FR3ST - (Slowed & Reverb) - (Tiktok version).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="𝐃𝐉 𝐌𝐋𝐊 𝐁𝐎𝐌 . (𝐔𝐋𝐓𝐑𝐀 𝐒𝐋𝐎𝐖𝐄𝐃  𝐑𝐄𝐕𝐄𝐑𝐁).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="MONTAGEM BEAT ABSURDO (Ultra Slowed).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="Spectrum [スペクトラム]  -  F-L-Y (1980).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="MONTAGEM SOMBRA ESTELAR 1.0 - DJ RICK 013 - (Slowed & Reverb) - (Tiktok Version).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="JOGO DE TOLOS (Slowed).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="Z1 - DJ HORIZONTE, 4WIZZ - ( ULTRA SLOWED  CARS 2 VERSION ).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="ZIMXN & Flame Runner - ECOS DO ABISMO (Super Slowed).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="DJ ESXF - RISADA DO SENHOR (Slow Version).mp3" type="audio/mpeg">
+  </audio>
+  <audio id="synthwaveAudio" loop>
+    <source src="Albert Einstein, Nikola Tesla Meme  (felicidades shinji) [TMNT Theme] (pvz meme).mp3" type="audio/mpeg">
+  </audio>
+<!-- 🔊 Добавь перед <script> -->
+  
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const size = 15;
+    const cells = canvas.width / size;
+    const eatSound = document.getElementById("eatSound");
+    const deathSound = document.getElementById("deathSound");
+  const tracks = [
+    { name: "Lofi", src: "lofi-2-312707.mp3" },
+    { name: "Breath Of Life", src: "breath-of-life_10-minutes-320859.mp3" },
+    { name: "Vidrado Em Você-DJ Guuga (SLOWED  REVERB)", src: "Vidrado Em Você - DJ Guuga (SLOWED  REVERB) Dancing emoji.mp3" },
+    { name: "SENTA MARIA VAI X BEAT ABSURDO (Ultra Slowed)", src: "SENTA MARIA VAI X BEAT ABSURDO (Ultra Slowed).mp3" },
+    { name: "MONTAGEM MARE GRANA (Ultra Slowed)", src: "MONTAGEM MARE GRANA (Ultra Slowed).mp3" },
+    { name: "AUREA COSMICA JAPANESE VERSION - (Slowed & Reverb) - (Tiktok Version)", src: "AUREA COSMICA JAPANESE VERSION - (Slowed & Reverb) - (Tiktok Version).mp3" },
+    { name: "KRUSHKRUSH! (Super Slowed)", src: "KRUSHKRUSH! (Super Slowed).mp3" },
+    { name: "MTG ENSURDECÊNCIA ESTELAR 1.0 SLOWED  REVERB - FR3ST & MC GW (VYRUS RECORDS)", src: "MTG ENSURDECÊNCIA ESTELAR 1.0 SLOWED  REVERB - FR3ST & MC GW (VYRUS RECORDS).mp3" },
+    { name: "REAL MOONSHINE FUNK - DJ ROBE ( Ultra Slowed  Reverb )", src: "REAL MOONSHINE FUNK - DJ ROBE ( Ultra Slowed  Reverb ).mp3" },
+    { name: "MONTAGEM FIM ESTRELAR - FR3ST - (Slowed & Reverb) - (Tiktok version)", src: "MONTAGEM FIM ESTRELAR - FR3ST - (Slowed & Reverb) - (Tiktok version).mp3" },
+    { name: "𝐃𝐉 𝐌𝐋𝐊 𝐁𝐎𝐌 . (𝐔𝐋𝐓𝐑𝐀 𝐒𝐋𝐎𝐖𝐄𝐃  𝐑𝐄𝐕𝐄𝐑𝐁)", src: "𝐃𝐉 𝐌𝐋𝐊 𝐁𝐎𝐌 . (𝐔𝐋𝐓𝐑𝐀 𝐒𝐋𝐎𝐖𝐄𝐃  𝐑𝐄𝐕𝐄𝐑𝐁).mp3" },
+    { name: "MONTAGEM BEAT ABSURDO (Ultra Slowed)", src: "MONTAGEM BEAT ABSURDO (Ultra Slowed).mp3" },
+    { name: "Spectrum [スペクトラム]  -  F-L-Y (1980)", src: "Spectrum [スペクトラム]  -  F-L-Y (1980).mp3" },
+    { name: "MONTAGEM SOMBRA ESTELAR 1.0 - DJ RICK 013 - (Slowed & Reverb) - (Tiktok Version)", src: "MONTAGEM SOMBRA ESTELAR 1.0 - DJ RICK 013 - (Slowed & Reverb) - (Tiktok Version).mp3" },
+    { name: "JOGO DE TOLOS (Slowed)", src: "JOGO DE TOLOS (Slowed).mp3" },
+    { name: "Z1 - DJ HORIZONTE, 4WIZZ - ( ULTRA SLOWED  CARS 2 VERSION )", src: "Z1 - DJ HORIZONTE, 4WIZZ - ( ULTRA SLOWED  CARS 2 VERSION ).mp3" },
+    { name: "ZIMXN & Flame Runner - ECOS DO ABISMO (Super Slowed)", src: "ZIMXN & Flame Runner - ECOS DO ABISMO (Super Slowed).mp3" },
+    { name: "DJ ESXF - RISADA DO SENHOR (Slow Version)", src: "DJ ESXF - RISADA DO SENHOR (Slow Version).mp3" },
+    { name: "Albert Einstein, Nikola Tesla Meme  (felicidades shinji) [TMNT Theme] (pvz meme)", src: "Albert Einstein, Nikola Tesla Meme  (felicidades shinji) [TMNT Theme] (pvz meme).mp3" },
+  ];
+
+  let currentTrack = 0;
+  const audio = new Audio();
+  const trackNameEl = document.getElementById("track-name");
+  
+
+  function loadTrack(index) {
+    audio.src = tracks[index].src;
+    trackNameEl.textContent = tracks[index].name;
+  }
+
+  function playCurrentTrack() {
+    loadTrack(currentTrack);
+    audio.play();
+  }
+
+  function pauseCurrentTrack() {
+    audio.pause();
+  }
+
+  function nextTrack() {
+    currentTrack = (currentTrack + 1) % tracks.length;
+    playCurrentTrack();
+  }
+
+  function prevTrack() {
+    currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
+    playCurrentTrack();
+  }
+  function nextTrack() {
+    currentTrack = (currentTrack + 1) % tracks.length;
+    playCurrentTrack();
+  }
+
+  function prevTrack() {
+    currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
+    playCurrentTrack();
+  }
+
+
+
+
+    let snake, direction, apple, score, highScore, paused, gameLoop;
+    let startTime = Date.now();
+    setInterval(() => {
+  const minutes = Math.floor((Date.now() - startTime) / 60000);
+  if (minutes >= 10) {
+    document.getElementById("heat").innerText = "⚠️ Возможен перегрев устройства!";
+  }
+}, 60000);
+navigator.getBattery().then(function(battery) {
+    let lastLevel = battery.level;
+    let lastTime = Date.now();
+
+    setInterval(() => {
+      let now = Date.now();
+      let timeDiff = (now - lastTime) / 1000; // сек
+      let levelDiff = lastLevel - battery.level;
+
+      // Если батарея теряет >3% за минуту и не заряжается — перегрев?
+      if (!battery.charging && timeDiff > 30 && levelDiff > 0.03) {
+        document.getElementById("overheatSound").play().catch(e => console.log("Звук перегрева ошибка", e));
+      }
+
+      lastLevel = battery.level;
+      lastTime = now;
+    }, 30000); // проверка каждые 30 сек
+  });
+
+    const ambientAudio = document.getElementById("ambientAudio");
+    const lofiAudio = document.getElementById("lofiAudio");
+  
+    const themeColors = {
+      black: "bg-black", gray: "bg-gray-800", slate: "bg-slate-800",
+      zinc: "bg-zinc-800", neutral: "bg-neutral-800", stone: "bg-stone-800",
+      red: "bg-red-900", orange: "bg-orange-900", amber: "bg-amber-900",
+      yellow: "bg-yellow-700", lime: "bg-lime-800", green: "bg-green-900",
+      emerald: "bg-emerald-800", teal: "bg-teal-900", cyan: "bg-cyan-900",
+      sky: "bg-sky-900", blue: "bg-blue-900", indigo: "bg-indigo-900",
+      violet: "bg-violet-900", purple: "bg-purple-900", fuchsia: "bg-fuchsia-900",
+      pink: "bg-pink-900", rose: "bg-rose-900", brown: "bg-yellow-950",
+      copper: "bg-orange-950", gold: "bg-yellow-800", silver: "bg-gray-500",
+      midnight: "bg-blue-950", forest: "bg-green-950", ocean: "bg-cyan-950"
+    };
+  
+    function updateTime() {
+      const now = new Date();
+      document.getElementById("time").innerText = now.toLocaleTimeString("en-GB", { hour12: false });
+    }
+
+    if (navigator.getBattery) {
+    navigator.getBattery().then(function(battery) {
+      function updateBatteryStatus() {
+        const percent = Math.round(battery.level * 100);
+        const chargingIcon = battery.charging ? " ⚡" : "";
+        document.getElementById("battery").innerText = `Батарея: ${percent}%${chargingIcon}`;
+      }
+      updateBatteryStatus();
+      battery.addEventListener("levelchange", updateBatteryStatus);
+      battery.addEventListener("chargingchange", updateBatteryStatus);
+    });
+  } else {
+    document.getElementById("battery").innerText = "Батарея: недоступно";
+  }
+
+  navigator.getBattery().then(function(battery) {
+    const chargingSound = document.getElementById("chargingSound");
+    const unplugSound = document.getElementById("unplugSound");
+
+    battery.addEventListener("chargingchange", function() {
+      if (battery.charging) {
+        // Подключили зарядку
+        chargingSound.currentTime = 0;
+        chargingSound.play().catch(e => console.log("Ошибка звука зарядки", e));
+      } else {
+        // Отключили зарядку
+        unplugSound.currentTime = 0;
+        unplugSound.play().catch(e => console.log("Ошибка звука отключения", e));
+      }
+    });
+  });
+  
+    function changeTheme(color) {
+      const base = "text-white flex flex-col items-center justify-center min-h-screen transition-colors duration-500 relative";
+      document.getElementById("body").className = `${base} ${themeColors[color] || "bg-black"}`;
+    }
+    async function getWeather() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+        const data = await response.json();
+        const weather = data.current_weather;
+        document.getElementById("weather").innerText = `Температура: ${weather.temperature}°C`;
+      });
+    }
+    getWeather();
+
+
+    function changeTheme(color) {
+      document.getElementById("body").className = `bg-black text-white flex flex-col items-center justify-center min-h-screen transition-colors duration-500 relative px-2 py-4 overflow-hidden ${themeColors[color] || "bg-black"}`;
+    }
+    async function getBatteryStatus() {
+  if (navigator.getBattery) {
+    const battery = await navigator.getBattery();
+    const update = () => {
+      const level = Math.round(battery.level * 100);
+      document.getElementById("battery").innerText = `🔋 Заряд: ${level}%`;
+    };
+    update();
+    battery.addEventListener("levelchange", update);
+  }
+}
+getBatteryStatus();
+
+function resizeCanvas() {
+  const width = window.innerWidth - 20;
+  const height = window.innerHeight * 0.6;
+  const minSize = Math.min(width, height);
+  canvas.width = Math.floor(minSize / size) * size;
+  canvas.height = Math.floor(minSize / size) * size;
+  if (typeof draw === "function") draw(); // перерисовать
+}
+
+console.log("Время запущено");
+setInterval(() => {
+  const now = new Date();
+  const formatted = now.toLocaleTimeString("ru-RU", { hour12: false });
+  console.log("Обновление времени:", formatted);
+  document.getElementById("time").innerText = formatted;
+}, 1000);
+
+
+
+  
+    function randomTheme() {
+      const keys = Object.keys(themeColors);
+      const randomKey = keys[Math.floor(Math.random() * keys.length)];
+      changeTheme(randomKey);
+    }
+  
+
+  
+    function triggerDeathEffect() {
+      const effect = document.getElementById("deathEffect");
+      effect.classList.remove("hidden");
+      effect.classList.add("absolute");
+      setTimeout(() => {
+        effect.classList.add("hidden");
+        effect.classList.remove("absolute");
+      }, 300);
+    }
+  
+    function updateScore() {
+      document.getElementById("score").innerText = `Очки: ${score} | Рекорд: ${highScore}`;
+    }
+  
+    function initGame() {
+      snake = [{ x: 10, y: 10 }];
+      direction = "right";
+      apple = { x: 5, y: 5 };
+      score = 0;
+      paused = false;
+      highScore = localStorage.getItem("snakeHigh") || 0;
+      updateScore();
+    }
+  
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "lime";
+      snake.forEach(p => {
+        ctx.fillRect(p.x * size, p.y * size, size, size);
+      });
+      ctx.fillStyle = "red";
+      ctx.fillRect(apple.x * size, apple.y * size, size, size);
+    }
+  
+    function update() {
+      if (paused) return;
+  
+      const head = { ...snake[0] };
+      if (direction === "right") head.x++;
+      if (direction === "left") head.x--;
+      if (direction === "up") head.y--;
+      if (direction === "down") head.y++;
+  
+      // смерть
+      if (
+        head.x < 0 || head.y < 0 || head.x >= cells || head.y >= cells ||
+        snake.some(p => p.x === head.x && p.y === head.y)
+      ) {
+        deathSound.currentTime = 0;
+        deathSound.play();
+        clearInterval(gameLoop);
+        triggerDeathEffect();
+        setTimeout(() => resetGame(), 300);
+        return;
+      }
+  
+      snake.unshift(head);
+  
+      if (head.x === apple.x && head.y === apple.y) {
+        score++;
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem("snakeHigh", highScore);
+        }
+        eatSound.currentTime = 0;
+        eatSound.play();
+        do {
+          apple = {
+            x: Math.floor(Math.random() * cells),
+            y: Math.floor(Math.random() * cells)
+          };
+        } while (snake.some(p => p.x === apple.x && p.y === apple.y));
+      } else {
+        snake.pop();
+      }
+  
+      draw();
+      updateScore();
+    }
+  
+    function startGame() {
+      initGame();
+      if (gameLoop) clearInterval(gameLoop);
+      gameLoop = setInterval(update, 130);
+    }
+  
+    function pauseGame() {
+      paused = !paused;
+    }
+  
+    function resetGame() {
+      clearInterval(gameLoop);
+      initGame();
+      draw();
+    }
+  
+    function setDirection(dir) {
+      const opposite = { up: "down", down: "up", left: "right", right: "left" };
+      if (dir !== opposite[direction]) direction = dir;
+    }
+  
+    document.addEventListener("keydown", e => {
+      const map = {
+        ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+        w: "up", s: "down", a: "left", d: "right"
+      };
+      const key = e.key.toLowerCase();
+      if (map[key]) setDirection(map[key]);
+    });
+  
+    let touchStartX = 0, touchStartY = 0;
+    const gameArea = document.getElementById("gameArea");
+  
+    gameArea.addEventListener("touchstart", e => {
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+    });
+  
+    gameArea.addEventListener("touchend", e => {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        setDirection(dx > 30 ? "right" : "left");
+      } else {
+        setDirection(dy > 30 ? "down" : "up");
+      }
+    });
+  
+    function toggleFullscreen() {
+      const docEl = document.documentElement;
+      if (!document.fullscreenElement) {
+        docEl.requestFullscreen?.();
+        docEl.webkitRequestFullscreen?.();
+        docEl.msRequestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    }
+  
+    // Запускаем время и игру
+    updateTime();
+    initGame();
+    draw();
+  </script>
+  
+</body>
+</html>
